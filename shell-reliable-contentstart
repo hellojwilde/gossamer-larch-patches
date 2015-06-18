@@ -1,0 +1,190 @@
+# HG changeset patch
+# Parent  43bbeae174f02d93b79466c1a46c6a50a38dcb84
+
+diff --git a/b2g/chrome/content/shell.js b/b2g/chrome/content/shell.js
+--- a/b2g/chrome/content/shell.js
++++ b/b2g/chrome/content/shell.js
+@@ -78,37 +78,23 @@ XPCOMUtils.defineLazyModuleGetter(this, 
+ function getContentWindow() {
+   return shell.contentBrowser.contentWindow;
+ }
+ 
+ function debug(str) {
+   dump(' -*- Shell.js: ' + str + '\n');
+ }
+ 
+-const once = event => {
+-  let target = shell.contentBrowser;
+-  return new Promise((resolve, reject) => {
+-    target.addEventListener(event, function gotEvent(evt) {
+-      target.removeEventListener(event, gotEvent, false);
+-      resolve(evt);
+-    }, false);
+-  });
+-}
+-
+ function clearCacheAndReload() {
+   // Reload the main frame with a cleared cache.
+   debug('Reloading ' + getContentWindow().location);
+   let cache = Cc["@mozilla.org/netwerk/cache-storage-service;1"]
+                 .getService(Ci.nsICacheStorageService);
+   cache.clear();
+   getContentWindow().location.reload(true);
+-  once('mozbrowserlocationchange').then(
+-    evt => {
+-      shell.sendEvent(window, "ContentStart");
+-    });
+ }
+ 
+ #ifdef MOZ_CRASHREPORTER
+ function debugCrashReport(aStr) {
+   dump('Crash reporter : ' + aStr);
+ }
+ #else
+ function debugCrashReport(aStr) {}
+@@ -241,20 +227,26 @@ var shell = {
+     return Services.prefs.getCharPref('b2g.system_startup_url');
+   },
+ 
+   get manifestURL() {
+     return Services.prefs.getCharPref('b2g.system_manifest_url');
+   },
+ 
+   _started: false,
++  _startedContent: false,
++
+   hasStarted: function shell_hasStarted() {
+     return this._started;
+   },
+ 
++  hasStartedContent: function shell_hasStartedContent() {
++    return this._startedContent;
++  },
++
+   bootstrap: function() {
+     let startManifestURL =
+       Cc['@mozilla.org/commandlinehandler/general-startup;1?type=b2gbootstrap']
+         .getService(Ci.nsISupports).wrappedJSObject.startManifestURL;
+ 
+     if (!startManifestURL) {
+       try {
+         startManifestURL = Services.prefs.getCharPref("b2g.default.start_manifest_url");
+@@ -376,16 +368,17 @@ var shell = {
+     chromeEventHandler.addEventListener('keydown', this, true);
+     chromeEventHandler.addEventListener('keyup', this, true);
+ 
+     window.addEventListener('MozApplicationManifest', this);
+     window.addEventListener('MozAfterPaint', this);
+     window.addEventListener('sizemodechange', this);
+     window.addEventListener('unload', this);
+     this.contentBrowser.addEventListener('mozbrowserloadstart', this, true);
++    this.contentBrowser.addEventListener('mozbrowserlocationchange', this, true);
+     this.contentBrowser.addEventListener('mozbrowserselectionstatechanged', this, true);
+     this.contentBrowser.addEventListener('mozbrowserscrollviewchange', this, true);
+     this.contentBrowser.addEventListener('mozbrowsercaretstatechanged', this);
+ 
+     CustomEventManager.init();
+     WebappsHelper.init();
+     UserAgentOverrides.init();
+     CaptivePortalLoginHelper.init();
+@@ -407,16 +400,17 @@ var shell = {
+ 
+   stop: function shell_stop() {
+     window.removeEventListener('unload', this);
+     window.removeEventListener('keydown', this, true);
+     window.removeEventListener('keyup', this, true);
+     window.removeEventListener('MozApplicationManifest', this);
+     window.removeEventListener('sizemodechange', this);
+     this.contentBrowser.removeEventListener('mozbrowserloadstart', this, true);
++    this.contentBrowser.removeEventListener('mozbrowserlocationchange', this, true);
+     this.contentBrowser.removeEventListener('mozbrowserselectionstatechanged', this, true);
+     this.contentBrowser.removeEventListener('mozbrowserscrollviewchange', this, true);
+     this.contentBrowser.removeEventListener('mozbrowsercaretstatechanged', this);
+     ppmm.removeMessageListener("content-handler", this);
+ 
+     UserAgentOverrides.uninit();
+   },
+ 
+@@ -500,30 +494,24 @@ var shell = {
+       case 'sizemodechange':
+         if (window.windowState == window.STATE_MINIMIZED && !this.visibleNormalAudioActive) {
+           this.contentBrowser.setVisible(false);
+         } else {
+           this.contentBrowser.setVisible(true);
+         }
+         break;
+       case 'mozbrowserloadstart':
+-        if (content.document.location == 'about:blank') {
+-          this.contentBrowser.addEventListener('mozbrowserlocationchange', this, true);
++      case 'mozbrowserlocationchange':
++        if (evt.target !== this.contentBrowser ||
++            content.document.location == 'about:blank') {
+           return;
+         }
+ 
+         this.notifyContentStart();
+         break;
+-      case 'mozbrowserlocationchange':
+-        if (content.document.location == 'about:blank') {
+-          return;
+-        }
+-
+-        this.notifyContentStart();
+-       break;
+       case 'mozbrowserscrollviewchange':
+         this.sendChromeEvent({
+           type: 'scrollviewchange',
+           detail: evt.detail,
+         });
+         break;
+       case 'mozbrowserselectionstatechanged':
+         // The mozbrowserselectionstatechanged event, may have crossed the chrome-content boundary.
+@@ -674,19 +662,25 @@ var shell = {
+       a.onerror = function() {
+         let sender = message.target.QueryInterface(Ci.nsIMessageSender);
+         sender.sendAsyncMessage(activity.response, { success: false });
+       }
+     }
+   },
+ 
+   notifyContentStart: function shell_notifyContentStart() {
+-    this.contentBrowser.removeEventListener('mozbrowserloadstart', this, true);
+-    this.contentBrowser.removeEventListener('mozbrowserlocationchange', this, true);
++    if (this.hasStartedContent()) {
++      this._notifySubsequentContentStart();
++    } else {
++      this._notifyInitialContentStart();
++      this._startedContent = true;
++    }
++  },
+ 
++  _notifyInitialContentStart: function shell__notifyInitialContentStart() {
+     let content = this.contentBrowser.contentWindow;
+ 
+     this.reportCrash(true);
+ 
+     SystemAppProxy.registerFrame(shell.contentBrowser);
+ 
+     this.sendEvent(window, 'ContentStart');
+ 
+@@ -721,16 +715,20 @@ var shell = {
+     if (Services.prefs.getBoolPref("b2g.nativeWindowGeometry.fullscreen")) {
+       document.body.mozRequestFullScreen();
+     }
+ #endif
+ 
+     shell.handleCmdLine();
+   },
+ 
++  _notifySubsequentContentStart: function shell__notifySubsequentContentStart() {
++    this.sendEvent(window, 'ContentStart');
++  },
++
+   handleCmdLine: function() {
+ #ifndef MOZ_WIDGET_GONK
+     let b2gcmds = Cc["@mozilla.org/commandlinehandler/general-startup;1?type=b2gcmds"]
+                     .getService(Ci.nsISupports);
+     let args = b2gcmds.wrappedJSObject.cmdLine;
+     try {
+       // Returns null if -url is not present.
+       let url = args.handleFlagWithParam("url", false);
