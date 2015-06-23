@@ -1,5 +1,5 @@
 # HG changeset patch
-# Parent  43bbeae174f02d93b79466c1a46c6a50a38dcb84
+# Parent  f48a4578f9686033b85fa45ceca64b3064cdd604
 
 diff --git a/b2g/chrome/content/shell.js b/b2g/chrome/content/shell.js
 --- a/b2g/chrome/content/shell.js
@@ -69,7 +69,7 @@ diff --git a/b2g/chrome/content/shell.js b/b2g/chrome/content/shell.js
      if (!startManifestURL) {
        try {
          startManifestURL = Services.prefs.getCharPref("b2g.default.start_manifest_url");
-@@ -376,16 +368,17 @@ var shell = {
+@@ -388,16 +380,17 @@ var shell = {
      chromeEventHandler.addEventListener('keydown', this, true);
      chromeEventHandler.addEventListener('keyup', this, true);
  
@@ -87,7 +87,7 @@ diff --git a/b2g/chrome/content/shell.js b/b2g/chrome/content/shell.js
      WebappsHelper.init();
      UserAgentOverrides.init();
      CaptivePortalLoginHelper.init();
-@@ -407,16 +400,17 @@ var shell = {
+@@ -419,16 +412,17 @@ var shell = {
  
    stop: function shell_stop() {
      window.removeEventListener('unload', this);
@@ -105,7 +105,7 @@ diff --git a/b2g/chrome/content/shell.js b/b2g/chrome/content/shell.js
      UserAgentOverrides.uninit();
    },
  
-@@ -500,30 +494,24 @@ var shell = {
+@@ -512,30 +506,24 @@ var shell = {
        case 'sizemodechange':
          if (window.windowState == window.STATE_MINIMIZED && !this.visibleNormalAudioActive) {
            this.contentBrowser.setVisible(false);
@@ -139,7 +139,7 @@ diff --git a/b2g/chrome/content/shell.js b/b2g/chrome/content/shell.js
          break;
        case 'mozbrowserselectionstatechanged':
          // The mozbrowserselectionstatechanged event, may have crossed the chrome-content boundary.
-@@ -674,19 +662,25 @@ var shell = {
+@@ -698,19 +686,25 @@ var shell = {
        a.onerror = function() {
          let sender = message.target.QueryInterface(Ci.nsIMessageSender);
          sender.sendAsyncMessage(activity.response, { success: false });
@@ -167,9 +167,9 @@ diff --git a/b2g/chrome/content/shell.js b/b2g/chrome/content/shell.js
  
      this.sendEvent(window, 'ContentStart');
  
-@@ -721,16 +715,20 @@ var shell = {
+@@ -745,16 +739,20 @@ var shell = {
      if (Services.prefs.getBoolPref("b2g.nativeWindowGeometry.fullscreen")) {
-       document.body.mozRequestFullScreen();
+       window.fullScreen = true;
      }
  #endif
  
