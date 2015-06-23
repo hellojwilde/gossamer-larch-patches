@@ -1,0 +1,25 @@
+# HG changeset patch
+# Parent  9c70790f1320be88b72dcd70c81165e87736bed1
+
+diff --git a/b2g/graphene/graphene.js b/b2g/graphene/graphene.js
+--- a/b2g/graphene/graphene.js
++++ b/b2g/graphene/graphene.js
+@@ -3,17 +3,17 @@
+ // Default value is F5
+ pref("b2g.reload_key", '{ "key": 116, "shift": false, "ctrl": false, "alt": false, "meta": false }');
+ 
+ #ifdef MOZ_HORIZON
+ pref("b2g.default.start_manifest_url", "https://mozvr.github.io/horizon/web/manifest.webapp");
+ pref("dom.vr.enabled", true);
+ pref("dom.ipc.tabs.disabled", true);
+ #else
+-pref("b2g.default.start_manifest_url", "https://mozilla.github.io/browser.html/manifest.webapp");
++pref("b2g.default.start_manifest_url", "https://gossamer-server.herokuapp.com/my/manifest.webapp");
+ pref("dom.ipc.tabs.disabled", false);
+ #endif
+ 
+ pref("javascript.options.discardSystemSource", false);
+ pref("browser.dom.window.dump.enabled", true);
+ pref("selectioncaret.enabled", false);
+ pref("browser.ignoreNativeFrameTextSelection", false);
+ pref("dom.meta-viewport.enabled", false);
